@@ -26,4 +26,7 @@ fn main() {
     game.add_player(player2);
     game.add_player(player3);
     game.add_player(player4);
+
+    // start game
+    game.run()
 }
