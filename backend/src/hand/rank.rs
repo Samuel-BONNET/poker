@@ -23,4 +23,18 @@ impl Rank {
         Rank::FourOfAKind,
         Rank::StraightFlush,
     ];
+
+    pub fn get_number_rank(&self) -> i32 {
+        match self {
+            Rank::HighCard => 1,
+            Rank::Pair => 2,
+            Rank::DoublePair => 3,
+            Rank::ThreeOfAKind => 4,
+            Rank::Straight => 5,
+            Rank::Flush => 6,
+            Rank::FullHouse => 7,
+            Rank::FourOfAKind => 8,
+            Rank::StraightFlush => 9,
+        }
+    }
 }
