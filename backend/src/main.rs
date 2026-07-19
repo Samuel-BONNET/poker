@@ -4,11 +4,12 @@ mod player;
 mod action;
 mod moment;
 
+mod hand;
+
 use game::Game;
 use player::Player;
 
 fn main() {
-    println!("Hello, world!");
     println!("Play Poker !");
 
     const BANKROLL: i32 = 200;

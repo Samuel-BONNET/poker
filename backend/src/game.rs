@@ -308,7 +308,7 @@ impl Game {
 
     pub fn get_blind_level(&mut self){
         let blind = (1.15_f64).powi(self.global_turn as i32) as i32;
-        self.current_blind = blind.camp(1,50)
+        self.current_blind = blind.clamp(1,50)
     }
 
     pub fn action_player(&mut self){
