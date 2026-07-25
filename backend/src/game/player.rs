@@ -1,7 +1,8 @@
-use crate::card::card::Card;
-use crate::hand::hand::Hand;
+use crate::game::card::card::Card;
+use crate::game::hand::hand::Hand;
+use serde::Serialize;
 
-#[derive(PartialEq, Clone)]
+#[derive(PartialEq, Clone, Serialize)]
 pub struct Player {
     pub id: u64,
     pub name: String,
@@ -81,12 +82,6 @@ impl Player {
         self.big_blind = state;
         self.add_bet(blind * 2)
     }
-
-    pub fn clear_blind(&mut self){
-        self.small_blind = false;
-        self.big_blind = false
-    }
-
     pub fn set_talked(&mut self, state: bool) {
         self.talked = state
     }

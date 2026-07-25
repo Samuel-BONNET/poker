@@ -1,13 +1,14 @@
-use crate::card::deck::Deck;
-use crate::player::Player;
-use crate::card::card::Card;
-use crate::moment::Moment;
-use crate::action::Action;
-use crate::hand::calculate::HandCalculate;
-use crate::hand::hand::Hand;
-use std::io;
+use crate::game::card::deck::Deck;
+use crate::game::player::Player;
+use crate::game::card::card::Card;
+use crate::game::moment::Moment;
+use crate::game::action::Action;
+use crate::game::hand::calculate::HandCalculate;
+use crate::game::hand::hand::Hand;
+use serde::Serialize;
 use rand::Rng;
 
+#[derive(Clone, Serialize)]
 pub struct Game {
     pub players: Vec<Player>,
     pub current_player: usize,
@@ -129,7 +130,7 @@ impl Game {
 
     // Run Work
 
-    fn start(&mut self){
+    pub fn start(&mut self){
         self.clean_cards();
         self.pot = 0;
     }
@@ -140,7 +141,7 @@ impl Game {
         self.common_card.clear();
     }
 
-    fn is_end(&self) -> bool {
+    pub fn is_end(&self) -> bool {
         let mut count: usize = 0;
         for player in &self.players{
             if !player.folded && player.active{
@@ -150,7 +151,8 @@ impl Game {
         count == 1
     }
 
-    fn end(&mut self){
+    #[allow(dead_code)]
+    pub fn end(&mut self){
         for player in &mut self.players{
             player.restore();
             if player.active && player.bankroll == 0{
@@ -160,7 +162,7 @@ impl Game {
         self.moment = self.moment.reset();
     }
 
-    fn check_finished(&mut self) -> bool{
+    pub fn check_finished(&mut self) -> bool{
         let mut count: usize = 0;
         for player in &self.players {
             if player.active{
@@ -194,6 +196,7 @@ impl Game {
         }
     }
 
+    #[allow(dead_code)]
     pub fn distribute_pots(&mut self){
         let results: Vec<(usize, Hand)> = self.players.iter().enumerate()
             .filter(|(_, p)| !p.folded && p.active)
@@ -299,7 +302,7 @@ impl Game {
             if self.players[(self.dealer_index+i) % size].active && !self.players[(self.dealer_index+i) % size].small_blind{
                 self.players[(self.dealer_index+i) % size].set_big_blind(true, self.current_blind);
                 self.max_bet = self.current_blind * 2;
-                self.current_player = (self.dealer_index+i) % size;
+                self.current_player = self.dealer_index;
                 break
             }
         }
@@ -311,7 +314,7 @@ impl Game {
         self.current_blind = blind.clamp(1,50)
     }
 
-    pub fn action_player(&mut self){
+    pub fn action_player(&mut self, action: Action){
         let player = &self.players[self.current_player];
         if !player.folded && player.active{
             println!("\n{} to play (J{})", player.name, player.id);
@@ -324,36 +327,14 @@ impl Game {
             return
         }
 
-        let mut input;
         loop {
-            input = String::new();
-            io::stdin().read_line(&mut input).unwrap();
-
-            if let Some(action) = Game::parse_action(&input){
-                if self.apply_action(action) {
-                    break;
-                }
+            if self.apply_action(action) {
+                break;
             }
             println!("Try again")
         }
         if !self.is_end(){
             self.next_player()
-        }
-    }
-
-    pub fn parse_action(input: &str) -> Option<Action>{
-        let mut parts = input.split_whitespace();
-        let command = parts.next();
-
-        match command{
-            Some("fold") => Some(Action::Fold),
-            Some("check") => Some(Action::Check),
-            Some("call") => Some(Action::Call),
-            Some("raise") => Some(Action::Raise(parts.next()?.parse::<i32>().ok()?)),
-            _ => {
-                println!("Input error");
-                None
-            }
         }
     }
 
@@ -428,42 +409,35 @@ impl Game {
         player_list
     }
 
+    pub fn player_needs_to_play(&self) -> bool{
+        !self.is_end() && !self.all_talked()
+    }
 
-    // Gameplay
-    pub fn run(&mut self){
-        self.choose_button();
-        while !self.check_finished(){
-            self.incr_turn();
-            println!("\nRound {} !", self.global_turn);
-            self.start();
-            while !self.is_end(){
-                self.action_moment();
-                println!("\nMoment : {:?}", self.moment);
-                if self.moment != Moment::Preflop{
-                    println!("Common Cards : {:?}",self.common_card)
-                }
-                if self.player_remaining().len() == 1{
-                    break
-                }
-                while !self.all_talked() && !self.is_end(){
-                    self.action_player()
-                }
+    pub fn advance(&mut self){
+        loop{
+            if self.player_needs_to_play() || self.is_end(){
+                break;
+            }
+            if self.all_talked(){
                 self.bet_gather();
                 if self.moment == Moment::River{
-                    break
+                    self.distribute_pots();
+                    self.end();
+                    break;
                 }
                 self.next_moment();
-                self.set_first_player();
-            }
-            if self.is_end(){
-                let w = self.player_remaining()[0];
-                println!("\n{} win {}$ pot !", self.players[w].name, self.pot);
-                self.players[w].add_bankroll(self.pot);
+                //self.set_first_player();
+                self.action_moment();
             }
             else{
-                self.distribute_pots()
+                break;
             }
-            self.end()
         }
+    }
+
+    pub fn start_round(&mut self){
+        self.incr_turn();
+        self.start();
+        self.action_moment();
     }
 }

@@ -2,8 +2,9 @@ use super::color::Color;
 use super::value::Value;
 use super::card::Card;
 use rand::seq::SliceRandom;
+use serde::Serialize;
 
-#[derive(Debug)]
+#[derive(Debug, Clone, Serialize)]
 pub struct Deck {
     cards: Vec<Card>
 }
