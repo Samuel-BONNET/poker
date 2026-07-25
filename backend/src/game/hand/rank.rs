@@ -1,4 +1,6 @@
-#[derive(Debug, Clone, Copy, PartialEq)]
+use serde::Serialize;
+
+#[derive(Debug, Clone, Copy, PartialEq, Serialize)]
 pub enum Rank {
     HighCard,
     Pair,

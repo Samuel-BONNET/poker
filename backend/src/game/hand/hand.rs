@@ -1,8 +1,9 @@
-use crate::card::card::Card;
-use crate::card::value::Value;
-use crate::hand::rank::Rank;
+use crate::game::card::card::Card;
+use crate::game::card::value::Value;
+use crate::game::hand::rank::Rank;
+use serde::Serialize;
 
-#[derive(Debug,Clone,PartialEq)]
+#[derive(Debug,Clone,PartialEq, Serialize)]
 pub struct Hand{
     pub cards: Vec<Card>,
     pub rank: Rank,

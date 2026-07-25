@@ -1,4 +1,7 @@
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+use serde::Serialize;
+
+
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Serialize)]
 pub enum Moment {
     Preflop,
     Flop,
@@ -13,10 +16,11 @@ impl Moment{
             Moment::Preflop => Moment::Flop,
             Moment::Flop => Moment::Turn,
             Moment::Turn => Moment::River,
-            Moment::River => Moment::Preflop,
+            Moment::River => Moment::River,
         }
     }
 
+    #[allow(dead_code)]
     pub fn reset(&self) -> Self {
         match self{
             Moment::Preflop => Moment::Preflop,
