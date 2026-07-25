@@ -1,7 +1,8 @@
 use super::color::Color;
 use super::value::Value;
+use serde::Serialize;
 
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, Serialize)]
 pub struct Card {
     pub value: Value,
     pub color: Color,

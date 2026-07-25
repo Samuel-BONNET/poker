@@ -1,7 +1,7 @@
-use crate::card::card::Card;
-use crate::hand::hand::Hand;
-use crate::hand::rank::Rank;
-use crate::card::value::Value;
+use crate::game::card::card::Card;
+use crate::game::hand::hand::Hand;
+use crate::game::hand::rank::Rank;
+use crate::game::card::value::Value;
 #[derive(Debug)]
 pub struct HandCalculate{
     pub hand_of_7: Hand,
@@ -74,10 +74,9 @@ impl HandCalculate{
                 if pair.len() >= 2{
                     hand.set_rank(Rank::FullHouse);
                     hand.add_value(three);
-                    let pair_val = pair.iter().find(|p| **p != three).unwrap();
-                    for v in pair{
-                        if v != three{
-                            hand.add_value(v)
+                    for v in &pair{
+                        if *v != three{
+                            hand.add_value(*v)
                         }
                     }
                 }
