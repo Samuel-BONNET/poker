@@ -1,15 +1,21 @@
-mod card;
 mod game;
-mod player;
-mod action;
-mod moment;
+mod state;
+mod routes;
 
-mod hand;
+use game::game::Game;
+use game::player::Player;
+use routes::game::get_game;
+use routes::health::get_health;
+use routes::game::post_start;
+use routes::game::post_action;
+use tokio::net::TcpListener;
+use axum::{ Router, routing::{get, post}};
+use state::app::{AppState, SharedState};
+use std::sync::{Arc, Mutex};
+use tower_http::cors::{CorsLayer, Any};
 
-use game::Game;
-use player::Player;
-
-fn main() {
+#[tokio::main]
+async fn main() {
     println!("Play Poker !");
 
     const BANKROLL: i32 = 200;
@@ -28,6 +34,17 @@ fn main() {
     game.add_player(player3);
     game.add_player(player4);
 
-    // start game
-    game.run()
+    let state: SharedState = Arc::new(Mutex::new(AppState { game }));
+
+    let app = Router::new()
+        .route("/game", get(get_game))
+        .route("/game/start", post(post_start))
+        .route("/game/action", post(post_action))
+        .route("/health", get(get_health))
+        .layer(CorsLayer::new().allow_origin(Any).allow_methods(Any).allow_headers(Any))
+        .with_state(state);
+
+    let listener = TcpListener::bind("127.0.0.1:3000").await.unwrap();
+
+    axum::serve(listener, app).await.unwrap();
 }
