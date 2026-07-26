@@ -102,6 +102,7 @@ impl Game {
 
     pub fn pre_flop(&mut self){
         self.next_button();
+        self.clean_cards();
         for player in &mut self.players {
             if player.active{
                 player.add_card(self.deck.draw().unwrap());
@@ -144,14 +145,13 @@ impl Game {
     pub fn is_end(&self) -> bool {
         let mut count: usize = 0;
         for player in &self.players{
-            if !player.folded && player.active{
+            if !player.folded && player.active && player.bankroll != 0{
                 count += 1
             }
         }
         count == 1
     }
 
-    #[allow(dead_code)]
     pub fn end(&mut self){
         for player in &mut self.players{
             player.restore();
@@ -159,7 +159,7 @@ impl Game {
                 player.state_active(false)
             }
         }
-        self.moment = self.moment.reset();
+        self.moment = Moment::Preflop;
     }
 
     pub fn check_finished(&mut self) -> bool{
@@ -196,7 +196,6 @@ impl Game {
         }
     }
 
-    #[allow(dead_code)]
     pub fn distribute_pots(&mut self){
         let results: Vec<(usize, Hand)> = self.players.iter().enumerate()
             .filter(|(_, p)| !p.folded && p.active)
@@ -286,6 +285,7 @@ impl Game {
                 if self.players[indx].active{
                     self.players[indx].set_big_blind(true, self.current_blind);
                     self.max_bet = self.current_blind * 2;
+                    self.pot += self.current_blind * 2;
                     break
                 }
             }
@@ -295,6 +295,7 @@ impl Game {
         for i in 1..size{
             if self.players[(self.dealer_index+i) % size].active{
                 self.players[(self.dealer_index+i) % size].set_small_blind(true, self.current_blind);
+                self.pot += self.current_blind;
                 break
             }
         }
@@ -302,6 +303,7 @@ impl Game {
             if self.players[(self.dealer_index+i) % size].active && !self.players[(self.dealer_index+i) % size].small_blind{
                 self.players[(self.dealer_index+i) % size].set_big_blind(true, self.current_blind);
                 self.max_bet = self.current_blind * 2;
+                self.pot += self.current_blind * 2;
                 self.current_player = self.dealer_index;
                 break
             }
@@ -356,6 +358,10 @@ impl Game {
             Action::Raise(value) => {
                 self.raise(value)
             }
+
+            Action::AllIn => {
+                self.raise(self.players[self.current_player].bankroll - self.players[self.current_player].bet)
+            }
         }
     }
 
@@ -394,7 +400,10 @@ impl Game {
             return true
         }
         else{
-            println!("You don't have eough to raise");
+            self.players[self.current_player].all_in();
+            self.max_bet = self.players[self.current_player].bet.max(self.max_bet);
+            self.untalked_all();
+            self.players[self.current_player].set_talked(true);
         }
         false
     }
@@ -415,7 +424,27 @@ impl Game {
 
     pub fn advance(&mut self){
         loop{
-            if self.player_needs_to_play() || self.is_end(){
+            if self.is_end(){
+                loop{
+                    if self.moment == Moment::River{
+                        break;
+                    }
+                    self.next_moment();
+                    self.action_moment();
+                };
+                self.bet_gather();
+                self.distribute_pots();
+
+                for i in 0..self.players.len(){
+                    println!("Hand Player {} : {:?}", i, self.players[i].hand)
+                }
+                println!("Common cards {:?}", self.common_card);
+
+                self.end();
+                self.start_round();
+                break;
+            }
+            if self.player_needs_to_play(){
                 break;
             }
             if self.all_talked(){
@@ -423,10 +452,11 @@ impl Game {
                 if self.moment == Moment::River{
                     self.distribute_pots();
                     self.end();
+                    self.start_round();
                     break;
                 }
                 self.next_moment();
-                //self.set_first_player();
+                self.set_first_player();
                 self.action_moment();
             }
             else{
@@ -436,6 +466,7 @@ impl Game {
     }
 
     pub fn start_round(&mut self){
+        self.global_turn = 0;
         self.incr_turn();
         self.start();
         self.action_moment();

@@ -46,7 +46,7 @@ impl Player {
     }
 
     pub fn add_bet(&mut self, value: i32){
-        if self.bankroll < self.bet + value{
+        if self.bankroll <= value{
             self.bet += self.bankroll;
             self.bankroll = 0;
             self.all_in = true;
@@ -59,6 +59,10 @@ impl Player {
 
     pub fn add_bankroll(&mut self, value: i32){
         self.bankroll += value
+    }
+
+    pub fn all_in(&mut self){
+        self.add_bet(self.bankroll);
     }
 
     pub fn is_all_in(&self) -> bool{
@@ -82,6 +86,7 @@ impl Player {
         self.big_blind = state;
         self.add_bet(blind * 2)
     }
+
     pub fn set_talked(&mut self, state: bool) {
         self.talked = state
     }

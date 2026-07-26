@@ -29,6 +29,7 @@ pub async fn post_action(State(state): State<SharedState>, Json(request): Json<A
         "check" => Action::Check,
         "call" => Action::Call,
         "raise" => Action::Raise(request.value.unwrap_or(0)),
+        "all-in" => Action::AllIn,
         _ => Action::Fold,
     };
 
