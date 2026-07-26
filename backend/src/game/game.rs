@@ -1,6 +1,6 @@
 use crate::game::card::deck::Deck;
 use crate::game::player::Player;
-use crate::game::card::card::Card;
+use shared::{Card, Color, Value};
 use crate::game::moment::Moment;
 use crate::game::action::Action;
 use crate::game::hand::calculate::HandCalculate;

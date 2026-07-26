@@ -1,6 +1,4 @@
-use super::color::Color;
-use super::value::Value;
-use super::card::Card;
+use shared::{Card, Color, Value};
 use rand::seq::SliceRandom;
 use serde::Serialize;
 

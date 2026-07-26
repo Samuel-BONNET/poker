@@ -1,5 +1,5 @@
-use super::color::Color;
-use super::value::Value;
+use crate::color::Color;
+use crate::value::Value;
 use serde::Serialize;
 
 #[derive(Debug, Clone, PartialEq, Serialize)]

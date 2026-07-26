@@ -1,6 +1,6 @@
-use serde::Serialize;
+use serde::{Serialize, Deserialize};
 
-#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, PartialOrd, Ord, Serialize, Deserialize)]
 pub enum Value {
     Null,
     Two,
@@ -20,19 +20,19 @@ pub enum Value {
 
 impl Value {
     pub const ALL: [Value; 13] = [
-            Value::Two,
-            Value::Three,
-            Value::Four,
-            Value::Five,
-            Value::Six,
-            Value::Seven,
-            Value::Eight,
-            Value::Nine,
-            Value::Ten,
-            Value::Jack,
-            Value::Queen,
-            Value::King,
-            Value::Ace,
+        Value::Two,
+        Value::Three,
+        Value::Four,
+        Value::Five,
+        Value::Six,
+        Value::Seven,
+        Value::Eight,
+        Value::Nine,
+        Value::Ten,
+        Value::Jack,
+        Value::Queen,
+        Value::King,
+        Value::Ace,
     ];
 
     pub fn get_number_value(&self) -> i32{

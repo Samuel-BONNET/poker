@@ -1,5 +1,7 @@
 use gloo_net::http::Request;
 use serde::Deserialize;
+use shared::color::Color;
+use shared::value::Value;
 
 
 
@@ -37,8 +39,8 @@ pub struct HandState{
 
 #[derive(Deserialize, Debug, Clone)]
 pub struct CardState{
-    pub color: String,
-    pub value: String,
+    pub color: Color,
+    pub value: Value,
 }
 
 pub async fn fetch_game() -> Result<GameState, ()>{

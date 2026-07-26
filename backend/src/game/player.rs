@@ -1,4 +1,4 @@
-use crate::game::card::card::Card;
+use shared::card::Card;
 use crate::game::hand::hand::Hand;
 use serde::Serialize;
 
