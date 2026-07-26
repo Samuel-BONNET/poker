@@ -1,7 +1,7 @@
-use crate::game::card::card::Card;
+use shared::card::Card;
+use shared::value::Value;
 use crate::game::hand::hand::Hand;
 use crate::game::hand::rank::Rank;
-use crate::game::card::value::Value;
 #[derive(Debug)]
 pub struct HandCalculate{
     pub hand_of_7: Hand,

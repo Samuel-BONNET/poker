@@ -1,5 +1,5 @@
-use crate::game::card::card::Card;
-use crate::game::card::value::Value;
+use shared::card::Card;
+use shared::value::Value;
 use crate::game::hand::rank::Rank;
 use serde::Serialize;
 
