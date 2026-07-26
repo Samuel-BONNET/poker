@@ -6,4 +6,5 @@ pub enum Action {
     Check,
     Call,
     Raise(i32),
+    AllIn,
 }
