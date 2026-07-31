@@ -9,10 +9,11 @@ use routes::health::get_health;
 use routes::game::post_start;
 use routes::game::post_action;
 use tokio::net::TcpListener;
-use axum::{ Router, routing::{get, post}};
+use axum::{ Router, routing::{get, post}, extract::ws::{WebSocketUpgrade, WebSocket, Message}, response::IntoResponse};
 use state::app::{AppState, SharedState};
 use std::sync::{Arc, Mutex};
 use tower_http::cors::{CorsLayer, Any};
+use futures_util::{SinkExt, StreamExt};
 
 #[tokio::main]
 async fn main() {
@@ -40,6 +41,7 @@ async fn main() {
         .route("/game", get(get_game))
         .route("/game/start", post(post_start))
         .route("/game/action", post(post_action))
+        .route("/ws", get(ws_handler))
         .route("/health", get(get_health))
         .layer(CorsLayer::new().allow_origin(Any).allow_methods(Any).allow_headers(Any))
         .with_state(state);
@@ -47,4 +49,28 @@ async fn main() {
     let listener = TcpListener::bind("127.0.0.1:3000").await.unwrap();
 
     axum::serve(listener, app).await.unwrap();
+}
+
+async fn ws_handler(ws: WebSocketUpgrade) -> impl IntoResponse{
+    ws.on_upgrade(handle_socket)
+}
+
+async fn handle_socket(mut socket: WebSocket){
+    println!("Connected Client");
+
+    while let Some(msg) = socket.recv().await{
+        match msg{
+            Ok(Message::Text(text)) => {
+                println!("Received : {}", text);
+
+                socket.send(Message::Text("Received Message".into())).await.unwrap();
+            }
+
+            Ok(Message::Close(_)) => {
+                println!("Disconnected Client");
+                break;
+            }
+            _ => {}
+        }
+    }
 }
