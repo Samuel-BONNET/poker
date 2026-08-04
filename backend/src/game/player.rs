@@ -91,7 +91,7 @@ impl Player {
         self.talked = state
     }
 
-    pub fn state_active(&mut self, state: bool){
+    pub fn set_active(&mut self, state: bool){
         self.active = state;
     }
 
