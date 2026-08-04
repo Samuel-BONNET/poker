@@ -1,8 +1,8 @@
 use crate::color::Color;
 use crate::value::Value;
-use serde::Serialize;
+use serde::{Serialize, Deserialize};
 
-#[derive(Debug, Clone, PartialEq, Serialize)]
+#[derive(Debug, Clone, PartialEq, Serialize, Deserialize)]
 pub struct Card {
     pub value: Value,
     pub color: Color,
