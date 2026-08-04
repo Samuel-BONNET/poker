@@ -71,6 +71,7 @@ dependencies = [
  "rand 0.8.6",
  "serde",
  "serde_json",
+ "shared",
  "tokio",
  "tower-http",
 ]
@@ -600,6 +601,13 @@ dependencies = [
  "cfg-if",
  "cpufeatures",
  "digest",
+]
+
+[[package]]
+name = "shared"
+version = "0.1.0"
+dependencies = [
+ "serde",
 ]
 
 [[package]]

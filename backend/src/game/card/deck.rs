@@ -1,0 +1,39 @@
+use shared::{Card, Color, Value};
+use rand::seq::SliceRandom;
+use serde::Serialize;
+
+#[derive(Debug, Clone, Serialize)]
+pub struct Deck {
+    cards: Vec<Card>
+}
+
+impl Deck {
+
+    pub fn new() -> Self {
+        Deck {
+            cards: Vec::new()
+        }
+    }
+
+    pub fn load(&mut self) {
+        self.cards.clear();
+        for color in Color::ALL {
+            for value in Value::ALL {
+                self.cards.push(Card::new(value, color))
+            }
+        }
+    }
+
+    pub fn reload(&mut self) {
+        self.load();
+        self.shuffle();
+    }
+
+    pub fn shuffle(&mut self){
+        self.cards.shuffle(&mut rand::thread_rng())
+    }
+
+    pub fn draw(&mut self) -> Option<Card> {
+        self.cards.pop()
+    }
+}
