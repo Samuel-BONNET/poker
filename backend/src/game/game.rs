@@ -1,6 +1,6 @@
 use crate::game::card::deck::Deck;
 use crate::game::player::Player;
-use shared::{Card, Color, Value};
+use shared::Card;
 use crate::game::moment::Moment;
 use crate::game::action::Action;
 use crate::game::hand::calculate::HandCalculate;
@@ -20,6 +20,7 @@ pub struct Game {
     pub deck: Deck,
     pub common_card: Vec<Card>,
     pub moment: Moment,
+    pub started: bool,
 }
 
 impl Game {
@@ -35,6 +36,7 @@ impl Game {
             deck: Deck::new(),
             common_card: Vec::new(),
             moment: Moment::Preflop,
+            started: false,
         }
     }
 
@@ -156,7 +158,7 @@ impl Game {
         for player in &mut self.players{
             player.restore();
             if player.active && player.bankroll == 0{
-                player.state_active(false)
+                player.set_active(false)
             }
         }
         self.moment = Moment::Preflop;
@@ -405,7 +407,7 @@ impl Game {
             self.untalked_all();
             self.players[self.current_player].set_talked(true);
         }
-        false
+        true
     }
 
     pub fn player_remaining(&self) -> Vec<usize>{
@@ -470,5 +472,6 @@ impl Game {
         self.incr_turn();
         self.start();
         self.action_moment();
+        self.started = true;
     }
 }
