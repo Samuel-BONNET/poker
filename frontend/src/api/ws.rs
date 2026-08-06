@@ -101,6 +101,10 @@ fn send(msg: ClientMessage) {
     });
 }
 
+pub fn leave() {
+    send(ClientMessage::Leave);
+}
+
 impl WsClient {
     fn apply(&self, msg: ServerMessage) {
         match msg {
@@ -121,12 +125,22 @@ impl WsClient {
                 self.is_leader.set(true);
             }
             ServerMessage::GameState(snapshot) => {
-                self.game.set(Some(snapshot));
+                self.game.set(Some(snapshot.clone()));
+                self.is_leader.set(snapshot.leader_seat == self.my_seat.get());
                 self.error.set(None);
+                self.notice.set(None);
             }
             ServerMessage::YourHand { cards } => self.my_hand.set(cards),
             ServerMessage::PlayerLeft { seat } => {
                 self.notice.set(Some(format!("Seat {} left the table", seat)));
+            }
+            ServerMessage::Leave => {
+                self.room.set(None);
+                self.game.set(None);
+                self.my_seat.set(None);
+                self.my_hand.set(Vec::new());
+                self.is_leader.set(false);
+                self.connected.set(false);
             }
             ServerMessage::Error { message } => self.error.set(Some(message)),
         }

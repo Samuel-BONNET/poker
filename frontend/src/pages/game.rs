@@ -1,12 +1,13 @@
 use leptos::prelude::*;
 use leptos_router::components::*;
+use leptos_router::hooks::use_navigate;
 use crate::api::ws;
 use crate::utils::card::card_image;
 
 #[component]
 pub fn GamePage() -> impl IntoView {
     let (raise_value, set_raise_value) = signal(String::new());
-    let (show_hand, set_show_hand) = signal(false);
+    let navigate = use_navigate();
     let send = move |action_type: String| {
         let value = if action_type == "raise" {
             raise_value.get().parse::<i32>().ok()
@@ -15,7 +16,6 @@ pub fn GamePage() -> impl IntoView {
         };
         ws::action(&action_type, value);
         set_raise_value.set(String::new());
-        set_show_hand.set(false);
     };
 
     let client = use_context::<ws::WsClient>().expect("WsClient not provided");
@@ -36,15 +36,26 @@ pub fn GamePage() -> impl IntoView {
 
             Some(g) => {
                 let current = g.current_player;
+                let my_turn = move || client.my_seat.get().is_some_and(|seat| {
+                    seat == current && client.game.get().is_some_and(|g| !g.run_out && g.players.get(seat).is_some_and(|p| p.active && !p.folded && !p.all_in))
+                });
                 view! {
                     <div>
                         <div class="flex flex-col items-center">
                             <p>{format!("Pot: {} | Max bet: {} | Moment: {}", g.pot, g.max_bet, g.moment)}</p>
+                            {g.last_winner.clone().map(|w| view! { <p>{format!("{} won the last hand", w)}</p> })}
+                            {g.run_out.then(|| {
+                                view! {
+                                    <p class="text-red-500 font-bold">
+                                        "SHOWDOWN - all-in ongoing..."
+                                    </p>
+                                }
+                            })}
                         </div>
                         {client.my_seat.get().map(|s| view! { <p class="text-center">{format!("Your seat: {}", s)}</p> })}
 
                         <div class="flex flex-col items-center">
-                            <h3>"Commond Cards :"</h3>
+                            <h3>"Common Cards :"</h3>
                             <div class="align-items gap-1 flex justify-center">
                                 {g.common_card.iter().map(|c| {
                                     view! { <img src=card_image(&c.color, &c.value) class="w-48" /> }
@@ -63,15 +74,16 @@ pub fn GamePage() -> impl IntoView {
                                     else if p.all_in { " -ALL-IN" }
                                     else if !p.active { "-ELIMINATED" }
                                     else { "" };
-                                let is_current = i == current && !p.folded && p.active;
+                                let is_turn = i == current && !p.folded && p.active;
+                                let is_me = client.my_seat.get() == Some(i) && !p.folded && p.active;
                                 view! {
                                     <div class=move || {
-                                        if is_current {"font-bold border-2 border-blue-500 p-4 flex flex-col items-center"}
+                                        if is_me {"font-bold border-2 border-blue-500 p-4 flex flex-col items-center"}
                                         else {"border-2 border-transparent p-4 flex flex-col items-center"} }>
                                         <p class="col-span-3">{p.name.clone()} {label} {status}</p>
                                         <p class="col-start-2">{format!("Bankroll: {} | Bet: {}", p.bankroll, p.bet)}</p>
                                         {
-                                            if show_hand.get(){
+                                            if is_me {
                                                 view! {
                                                     <div class="flex justify-center gap-2">
                                                         { client.my_hand.get().iter().map(|c| {
@@ -80,7 +92,7 @@ pub fn GamePage() -> impl IntoView {
                                                     </div>
                                                 }
                                             }
-                                            else{
+                                            else {
                                                 view! {
                                                     <div class="flex justify-center">
                                                         { (0..2).map(|_| {
@@ -98,22 +110,16 @@ pub fn GamePage() -> impl IntoView {
                         <div class="flex flex-col gap-2 m-4 items-center">
                             <h3>{format!("Actions (player {})", current+1)}</h3>
                             <div class="flex justify-center gap-2">
-                                <button on:click=move |_| send("fold".to_string())>"Fold"</button>
-                                <button on:click=move |_| send("check".to_string())>"Check"</button>
-                                <button on:click=move |_| send("call".to_string())>"Call"</button>
+                                <button disabled=move || !my_turn() on:click=move |_| send("fold".to_string())>"Fold"</button>
+                                <button disabled=move || !my_turn() on:click=move |_| send("check".to_string())>"Check"</button>
+                                <button disabled=move || !my_turn() on:click=move |_| send("call".to_string())>"Call"</button>
                                 <div class="flex flex-col items-center">
-                                    <input type="number" placeholder="Raise Amount" prop:value=raise_value
+                                    <input disabled=move || !my_turn() type="number" placeholder="Raise Amount" prop:value=raise_value
                                         on:input=move |ev| set_raise_value.set(event_target_value(&ev)) />
-                                    <button on:click=move |_| send("raise".to_string())>"Raise"</button>
+                                    <button disabled=move || !my_turn() on:click=move |_| send("raise".to_string())>"Raise"</button>
                                 </div>
-                                <button on:click=move |_| send("all-in".to_string())>"All-in"</button>
+                                <button disabled=move || !my_turn() on:click=move |_| send("all-in".to_string())>"All-in"</button>
                             </div>
-                        </div>
-
-                        <div class="flex flex-col items-center">
-                            <button on:click=move |_| set_show_hand.update(|v| *v = !* v)>
-                                {move || if show_hand.get() { "Hide" } else { "Show" }}
-                            </button>
                         </div>
                     </div>
                 }
