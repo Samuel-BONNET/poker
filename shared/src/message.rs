@@ -7,6 +7,7 @@ pub enum ClientMessage {
     CreateRoom { name: Option<String> },
     JoinRoom { room: String, name: Option<String> },
     Start,
+    Leave,
     Action { action_type: String, value: Option<i32> },
 }
 
@@ -18,6 +19,7 @@ pub enum ServerMessage {
     GameState(GameSnapshot),
     YourHand { cards: Vec<Card> },
     PlayerLeft { seat: usize },
+    Leave,
     Error { message: String },
 }
 
@@ -31,6 +33,9 @@ pub struct GameSnapshot {
     pub common_card: Vec<Card>,
     pub players: Vec<PlayerSnapshot>,
     pub started: bool,
+    pub leader_seat: Option<usize>,
+    pub last_winner: Option<String>,
+    pub run_out: bool,
 }
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
@@ -39,7 +44,6 @@ pub struct PlayerSnapshot {
     pub name: String,
     pub bankroll: i32,
     pub bet: i32,
-    pub hand: Vec<Card>,
     pub folded: bool,
     pub all_in: bool,
     pub small_blind: bool,
