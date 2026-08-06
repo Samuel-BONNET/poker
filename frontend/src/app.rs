@@ -8,9 +8,13 @@ use crate::api::ws;
 
 #[component]
 pub fn App() -> impl IntoView {
-    let client = ws::client().expect("Cannot connect to server");
+    let client = match ws::client() {
+        Ok(c) => c,
+        Err(e) => {
+            return view! { <p class="text-red-500">{format!("Connexion impossible : {e}")}</p> }.into_any();
+        }
+    };
     provide_context(client);
-
     view! {
         <Router>
             <Routes fallback=|| "Page not found">
@@ -19,5 +23,5 @@ pub fn App() -> impl IntoView {
                 <Route path=path!("/room") view=RoomPage />
             </Routes>
         </Router>
-    }
+    }.into_any()
 }

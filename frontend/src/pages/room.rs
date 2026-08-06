@@ -19,7 +19,7 @@ pub fn RoomPage() -> impl IntoView {
         <h1 class="text-center">"Texas Hold'Soul"</h1>
 
         <A href="/">
-            <button>"Return to hub"</button>
+            <button on:click=move |_| ws::leave()>"Leave"</button>
         </A>
 
         <h3>"Room Code:" {move || client.room.get().unwrap_or_default()}</h3>
@@ -34,7 +34,8 @@ pub fn RoomPage() -> impl IntoView {
         </ul>
 
         {move || if client.is_leader.get() {
-            view! { <button on:click=move |_| ws::start()>"New game"</button> }.into_any()
+            let players = client.game.get().map(|g| g.players.iter().filter(|p| p.active).count()).unwrap_or(0);
+            view! { <button disabled=move || players < 2 on:click=move |_| ws::start()>"New game"</button> }.into_any()
         } else {
             view! { <p>"Waiting for the host to start the game..."</p> }.into_any()
         }}

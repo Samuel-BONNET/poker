@@ -14,7 +14,12 @@ pub fn HomePage() -> impl IntoView {
         move |_| {
             let n = name.get();
             ws::create_room(if n.trim().is_empty() { None } else { Some(n.as_str()) });
-            navigate("/room", Default::default());
+            let navigate = navigate.clone();
+            Effect::new(move |_| {
+                if client.room.get().is_some() {
+                    navigate("/room", Default::default());
+                }
+            });
         }
     };
     let join = {
@@ -22,7 +27,12 @@ pub fn HomePage() -> impl IntoView {
         move |_| {
             let n = name.get();
             ws::join_room(&code.get(), if n.trim().is_empty() { None } else { Some(n.as_str()) });
-            navigate("/room", Default::default());
+            let navigate = navigate.clone();
+            Effect::new(move |_| {
+                if client.room.get().is_some() {
+                    navigate("/room", Default::default());
+                }
+            });
         }
     };
 
