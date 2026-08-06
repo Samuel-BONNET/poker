@@ -1,7 +1,7 @@
 use crate::game::card::deck::Deck;
 use crate::game::player::Player;
 use shared::Card;
-use crate::game::moment::Moment;
+use shared::moment::Moment;
 use crate::game::action::Action;
 use crate::game::hand::calculate::HandCalculate;
 use crate::game::hand::hand::Hand;
