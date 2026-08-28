@@ -1,3 +1,135 @@
 @import "tailwindcss";
 
 @source "../src";
+
+@theme {
+    --color-bg: #0a0a0b;
+    --color-surface: #131316;
+    --color-surface-2: #1a1a1f;
+    --color-line: #26262b;
+    --color-text: #f4f4f5;
+    --color-muted: #8b8b94;
+    --color-accent: #34d399;
+    --color-danger: #f87171;
+}
+
+@layer base {
+    html, body {
+        height: 100%;
+        background: var(--color-bg);
+        color: var(--color-text);
+        font-family: ui-sans-serif, system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
+        overflow: hidden;
+    }
+}
+
+@layer components {
+    .btn-primary {
+        @apply inline-flex items-center justify-center gap-2 rounded-lg font-medium text-sm text-bg bg-text transition-all duration-150 select-none disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.98] hover:bg-white;
+    }
+
+    .btn-secondary {
+        @apply inline-flex items-center justify-center gap-2 rounded-lg font-medium text-sm text-text bg-surface-2 border border-line transition-all duration-150 select-none disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.98] hover:bg-white/10;
+    }
+
+    .btn-danger {
+        @apply inline-flex items-center justify-center gap-2 rounded-lg font-medium text-sm text-danger bg-danger/10 transition-all duration-150 select-none disabled:opacity-40 disabled:cursor-not-allowed active:scale-[0.98] hover:bg-danger/20;
+    }
+
+    .input {
+        @apply w-full rounded-lg bg-surface border border-line px-3.5 py-2 text-sm text-text placeholder:text-muted/60 outline-none transition-colors focus:border-accent/60;
+    }
+
+    .slider {
+        -webkit-appearance: none;
+        appearance: none;
+        height: 4px;
+        border-radius: 9999px;
+        background: rgba(255, 255, 255, 0.14);
+        outline: none;
+    }
+    .slider::-webkit-slider-thumb {
+        -webkit-appearance: none;
+        appearance: none;
+        width: 14px;
+        height: 14px;
+        border-radius: 9999px;
+        background: var(--color-text);
+        border: none;
+        cursor: pointer;
+    }
+    .slider::-moz-range-thumb {
+        width: 14px;
+        height: 14px;
+        border-radius: 9999px;
+        background: var(--color-text);
+        border: none;
+        cursor: pointer;
+    }
+    .slider:disabled::-webkit-slider-thumb {
+        cursor: not-allowed;
+        opacity: 0.35;
+    }
+    .slider:disabled::-moz-range-thumb {
+        cursor: not-allowed;
+        opacity: 0.35;
+    }
+}
+
+@layer utilities {
+    .animate-deal {
+        animation: deal-in 0.3s ease-out both;
+    }
+    .animate-fade-up {
+        animation: fade-up 0.25s ease-out both;
+    }
+    .turn-ring {
+        animation: turn-ring 1.8s ease-in-out infinite;
+    }
+    .pot-pop {
+        animation: pot-pop 0.3s ease-out;
+    }
+}
+
+@keyframes deal-in {
+    from {
+        opacity: 0;
+        transform: translateY(-6px) scale(0.94);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+@keyframes fade-up {
+    from {
+        opacity: 0;
+        transform: translateY(8px);
+    }
+    to {
+        opacity: 1;
+        transform: none;
+    }
+}
+
+@keyframes turn-ring {
+    0%, 100% {
+        box-shadow: 0 0 0 1px var(--color-accent);
+    }
+    50% {
+        box-shadow: 0 0 0 1px var(--color-accent), 0 0 14px 1px rgba(52, 211, 153, 0.35);
+    }
+}
+
+@keyframes pot-pop {
+    0% {
+        transform: scale(1);
+    }
+    45% {
+        transform: scale(1.12);
+    }
+    100% {
+        transform: scale(1);
+    }
+}

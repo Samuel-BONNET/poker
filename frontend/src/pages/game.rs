@@ -1,130 +1,156 @@
 use leptos::prelude::*;
 use leptos_router::components::*;
-use leptos_router::hooks::use_navigate;
 use crate::api::ws;
-use crate::utils::card::card_image;
+use crate::components::action_bar::ActionBar;
+use crate::components::card::CardView;
+use crate::components::seat::SeatView;
+
+fn moment_label(m: &str) -> String {
+    match m {
+        "Preflop" => "Préflop".to_string(),
+        "Flop" => "Flop".to_string(),
+        "Turn" => "Turn".to_string(),
+        "River" => "River".to_string(),
+        other => other.to_string(),
+    }
+}
+
+fn seat_position(n: usize, my_seat: usize, index: usize) -> (f64, f64, f64, f64) {
+    let count = n.max(2) as f64;
+    let k = (index + n - (my_seat % n)) % n;
+    let theta = std::f64::consts::FRAC_PI_2 + (k as f64 * 2.0 * std::f64::consts::PI / count);
+    let ry = if k == 0 { 26.0 } else { 40.0 };
+    (
+        50.0 + 44.0 * theta.cos(),
+        50.0 + ry * theta.sin(),
+        -theta.cos(),
+        -theta.sin(),
+    )
+}
 
 #[component]
 pub fn GamePage() -> impl IntoView {
-    let (raise_value, set_raise_value) = signal(String::new());
-    let navigate = use_navigate();
-    let send = move |action_type: String| {
-        let value = if action_type == "raise" {
-            raise_value.get().parse::<i32>().ok()
-        } else {
-            None
-        };
-        ws::action(&action_type, value);
-        set_raise_value.set(String::new());
-    };
-
     let client = use_context::<ws::WsClient>().expect("WsClient not provided");
 
+    let my_turn = Signal::derive(move || {
+        client.my_seat.get().is_some_and(|seat| {
+            client.game.get().is_some_and(|g| {
+                seat == g.current_player
+                    && !g.run_out
+                    && g.players.get(seat).is_some_and(|p| p.active && !p.folded && !p.all_in)
+            })
+        })
+    });
+
+    let (pot_anim, set_pot_anim) = signal(false);
+    Effect::new(move |_| {
+        let _ = client.game.get().map(|g| g.pot);
+        set_pot_anim.set(false);
+        queue_microtask(move || set_pot_anim.set(true));
+    });
+
     view! {
-        <h1 class="text-center bold">"Texas Hold'Soul"</h1>
-        <div class="flex justify-center gap-5">
-            <A href="/">
-                <button>"Return to hub"</button>
-            </A>
-            {move || client.room.get().map(|r| view! { <p class="text-center">{format!("Room: {}", r)}</p> })}
-        </div>
+        <div class="h-screen w-screen overflow-hidden bg-bg flex flex-col relative">
+            <header class="flex items-center justify-between px-6 py-4 z-30">
+                <A href="/">
+                    <button class="btn-secondary px-3 py-1.5 text-xs">"← Retour"</button>
+                </A>
+                <div class="flex items-center gap-3 text-sm text-muted">
+                    {move || client.room.get().map(|r| view! { <span>{format!("Salle {}", r)}</span> })}
+                    {move || client.game.get().map(|g| view! { <span class="text-text/80">{moment_label(&g.moment)}</span> })}
+                </div>
+                <div class="w-16"></div>
+            </header>
 
-        {move || client.error.get().map(|e| view! { <p class="text-red-500">{e}</p> })}
-        {move || client.notice.get().map(|n| view! { <p class="text-yellow-500">{n}</p> })}
+            <div class="absolute top-16 left-1/2 -translate-x-1/2 z-50 flex flex-col items-center gap-2 w-full px-4 pointer-events-none">
+                {move || client.error.get().map(|e| view! { <div class="animate-fade-up text-sm text-danger bg-danger/10 border border-danger/20 px-3 py-2 rounded-lg">{e}</div> })}
+                {move || client.notice.get().map(|n| view! { <div class="animate-fade-up text-sm text-text bg-surface border border-line px-3 py-2 rounded-lg">{n}</div> })}
+            </div>
 
-        {move || match client.game.get() {
+            <main class="relative flex-1">
+                <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 w-[min(88vw,112vh)] aspect-[10/6] rounded-full border border-line bg-surface/40"></div>
 
-            Some(g) => {
-                let current = g.current_player;
-                let my_turn = move || client.my_seat.get().is_some_and(|seat| {
-                    seat == current && client.game.get().is_some_and(|g| !g.run_out && g.players.get(seat).is_some_and(|p| p.active && !p.folded && !p.all_in))
-                });
-                view! {
-                    <div>
-                        <div class="flex flex-col items-center">
-                            <p>{format!("Pot: {} | Max bet: {} | Moment: {}", g.pot, g.max_bet, g.moment)}</p>
-                            {g.last_winner.clone().map(|w| view! { <p>{format!("{} won the last hand", w)}</p> })}
-                            {g.run_out.then(|| {
-                                view! {
-                                    <p class="text-red-500 font-bold">
-                                        "SHOWDOWN - all-in ongoing..."
-                                    </p>
-                                }
-                            })}
-                        </div>
-                        {client.my_seat.get().map(|s| view! { <p class="text-center">{format!("Your seat: {}", s)}</p> })}
-
-                        <div class="flex flex-col items-center">
-                            <h3>"Common Cards :"</h3>
-                            <div class="align-items gap-1 flex justify-center">
-                                {g.common_card.iter().map(|c| {
-                                    view! { <img src=card_image(&c.color, &c.value) class="w-48" /> }
-                                }).collect_view()}
-                            </div>
-                        </div>
-
-                        <div class="flex flex-col items-center">
-                            <h3>"Players"</h3>
-                            {g.players.iter().enumerate().map(|(i, p)| {
-                                let label = if p.small_blind { "(SB)" }
-                                    else if p.big_blind { "(BB)" }
-                                    else if i == g.dealer_index { "(BTN)" }
-                                    else { "" };
-                                let status = if p.folded { " - FOLD " }
-                                    else if p.all_in { " -ALL-IN" }
-                                    else if !p.active { "-ELIMINATED" }
-                                    else { "" };
-                                let is_turn = i == current && !p.folded && p.active;
-                                let is_me = client.my_seat.get() == Some(i) && !p.folded && p.active;
-                                view! {
-                                    <div class=move || {
-                                        if is_me {"font-bold border-2 border-blue-500 p-4 flex flex-col items-center"}
-                                        else {"border-2 border-transparent p-4 flex flex-col items-center"} }>
-                                        <p class="col-span-3">{p.name.clone()} {label} {status}</p>
-                                        <p class="col-start-2">{format!("Bankroll: {} | Bet: {}", p.bankroll, p.bet)}</p>
-                                        {
-                                            if is_me {
-                                                view! {
-                                                    <div class="flex justify-center gap-2">
-                                                        { client.my_hand.get().iter().map(|c| {
-                                                            view! { <img src=card_image(&c.color, &c.value) class="w-48" /> }
-                                                        }).collect_view()}
-                                                    </div>
-                                                }
-                                            }
-                                            else {
-                                                view! {
-                                                    <div class="flex justify-center">
-                                                        { (0..2).map(|_| {
-                                                            view! { <img src="/cards/back_card.png".to_string() class="w-48" /> }
-                                                        }).collect_view()}
-                                                    </div>
-                                                }
-                                            }
-                                        }
-                                    </div>
+                <div class="absolute left-1/2 top-1/2 -translate-x-1/2 -translate-y-1/2 z-20 flex flex-col items-center gap-3 pointer-events-none">
+                    {move || client.game.get().map(|g| view! {
+                        <div class="flex gap-2">
+                            {(0..5).map(|j| {
+                                if let Some(card) = g.common_card.get(j).cloned() {
+                                    view! { <CardView card=card class="w-14" /> }.into_any()
+                                } else {
+                                    view! { <div class="w-14 aspect-[242/340] rounded-md border border-dashed border-white/10" /> }.into_any()
                                 }
                             }).collect_view()}
                         </div>
-
-                        <div class="flex flex-col gap-2 m-4 items-center">
-                            <h3>{format!("Actions (player {})", current+1)}</h3>
-                            <div class="flex justify-center gap-2">
-                                <button disabled=move || !my_turn() on:click=move |_| send("fold".to_string())>"Fold"</button>
-                                <button disabled=move || !my_turn() on:click=move |_| send("check".to_string())>"Check"</button>
-                                <button disabled=move || !my_turn() on:click=move |_| send("call".to_string())>"Call"</button>
-                                <div class="flex flex-col items-center">
-                                    <input disabled=move || !my_turn() type="number" placeholder="Raise Amount" prop:value=raise_value
-                                        on:input=move |ev| set_raise_value.set(event_target_value(&ev)) />
-                                    <button disabled=move || !my_turn() on:click=move |_| send("raise".to_string())>"Raise"</button>
-                                </div>
-                                <button disabled=move || !my_turn() on:click=move |_| send("all-in".to_string())>"All-in"</button>
-                            </div>
+                        <div class=move || format!(
+                            "text-lg font-medium text-text/90 {}",
+                            if pot_anim.get() { "pot-pop" } else { "" }
+                        )>
+                            {format!("Pot · {}", g.pot)}
                         </div>
+                    })}
+                </div>
+
+                {move || client.game.get().map(|g| view! {
+                    <div>
+                        {g.run_out.then(|| view! {
+                            <div class="absolute left-1/2 top-[15%] -translate-x-1/2 z-30 animate-fade-up text-sm text-muted">"Showdown en cours…"</div>
+                        })}
+                        {g.last_winner.clone().map(|w| view! {
+                            <div class="absolute left-1/2 top-[15%] -translate-x-1/2 z-30 animate-fade-up text-sm text-text/90">{format!("{} remporte le pot", w)}</div>
+                        })}
                     </div>
-                }
-            }.into_any(),
-            None => view! { <div class="text-center">"Waiting..."</div> }.into_any()
-        }}
+                })}
+
+                {move || client.game.get().map(|g| {
+                    let n = g.players.len();
+                    let my_seat = client.my_seat.get().unwrap_or(0);
+                    let my_hand = client.my_hand.get();
+                    let current = g.current_player;
+                    g.players.iter().enumerate()
+                        .filter(|(_, p)| p.active)
+                        .map(|(i, p)| {
+                            let (x, y, dx, dy) = seat_position(n, my_seat, i);
+                            let is_hero = my_seat == i;
+                            let is_turn = !g.run_out && current == i && !p.folded;
+                            let hero_cards = if is_hero { my_hand.clone() } else { Vec::new() };
+                            view! {
+                                <SeatView
+                                    name=p.name.clone()
+                                    bankroll=p.bankroll
+                                    bet=p.bet
+                                    folded=p.folded
+                                    all_in=p.all_in
+                                    small_blind=p.small_blind
+                                    big_blind=p.big_blind
+                                    is_dealer=i == g.dealer_index
+                                    is_turn=is_turn
+                                    is_hero=is_hero
+                                    hero_cards=hero_cards
+                                    pos=(x, y)
+                                    dir=(dx, dy)
+                                />
+                            }
+                        }).collect_view()
+                })}
+
+                {move || client.game.get().map(|g| {
+                    if !g.started {
+                        view! { <div class="absolute inset-0 z-40 flex items-center justify-center">
+                            <div class="animate-fade-up text-sm text-muted">"En attente du début de la partie…"</div>
+                        </div> }.into_any()
+                    } else { ().into_any() }
+                })}
+
+                {move || client.game.get().is_none().then(|| view! {
+                    <div class="absolute inset-0 z-40 flex items-center justify-center">
+                        <div class="animate-fade-up text-sm text-muted">"Connexion à la table…"</div>
+                    </div>
+                })}
+            </main>
+
+            <footer class="z-30 flex justify-center px-4 pb-4">
+                <ActionBar my_turn=my_turn />
+            </footer>
+        </div>
     }
 }
