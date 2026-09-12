@@ -80,6 +80,7 @@ impl Room {
             self.leader = id;
         }
         self.connections.insert(id, (seat, out));
+        println!("[room] conn {id} registered -> seat {seat} ({} player(s), started={})", self.game.players.len(), self.game.started);
         Ok((id, seat))
     }
 
@@ -158,6 +159,7 @@ impl Room {
     }
 
     pub fn push_state(&mut self) {
+        println!("[room] push_state (started={}, players={})", self.game.started, self.game.players.len());
         let snapshot = {
             let mut s = GameSnapshot::from(&self.game);
             s.leader_seat = self.connections.get(&self.leader).map(|(seat, _)| *seat);
@@ -178,6 +180,9 @@ impl Room {
     }
 
     fn drop_connections(&mut self, ids: &[u64]) {
+        if !ids.is_empty() {
+            println!("[room] dropping connections {:?}", ids);
+        }
         let mut seats = Vec::new();
         for id in ids {
             if let Some((seat, _)) = self.connections.remove(id) {
@@ -285,5 +290,51 @@ mod tests {
         }
         assert!(finished);
         assert!(!guard.game.run_out);
+    }
+
+    #[test]
+    fn fold_at_preflop_does_not_panic() {
+        let room = make_room(9);
+        let (id0, _) = register(&room).unwrap();
+        let (id1, _) = register(&room).unwrap();
+        let mut guard = room.try_lock().unwrap();
+        guard.start(id0).unwrap();
+
+        let first = guard.game.current_player;
+        guard.apply_action([id0, id1][first], Action::Fold).unwrap();
+        let other = (first + 1) % guard.game.players.len();
+
+        assert!(!guard.game.run_out);
+        assert!(guard.game.started, "un nouveau round doit commencer");
+        let chips: i32 = guard.game.pot
+            + guard.game.players.iter().map(|p| p.bankroll + p.bet).sum::<i32>();
+        assert_eq!(chips, 400, "les jetons doivent être conservés");
+
+        let loser_bankroll = guard.game.players[first].bankroll + guard.game.players[first].bet;
+        let winner_bankroll = guard.game.players[other].bankroll + guard.game.players[other].bet;
+        assert_eq!(loser_bankroll + winner_bankroll, 400);
+        assert!(winner_bankroll > loser_bankroll, "le survivant remporte le pot");
+    }
+
+    #[test]
+    fn start_broadcasts_started_to_every_connection() {
+        let room = make_room(9);
+        let (tx0, mut rx0) = tokio::sync::mpsc::unbounded_channel();
+        let (tx1, mut rx1) = tokio::sync::mpsc::unbounded_channel();
+        let (id0, _) = room.try_lock().unwrap().register(tx0).unwrap();
+        let (_, _)  = room.try_lock().unwrap().register(tx1).unwrap();
+        {
+            let mut g = room.try_lock().unwrap();
+            g.start(id0).unwrap();
+            g.push_state();
+        }
+        for (rx, who) in [(&mut rx0, "host"), (&mut rx1, "joiner")] {
+            let snap = match rx.try_recv().unwrap() {
+                ServerMessage::GameState(s) => s,
+                other => panic!("{other:?}"),
+            };
+            assert!(snap.started, "{who} ne reçoit pas started=true");
+            assert_eq!(snap.players.len(), 2);
+        }
     }
 }

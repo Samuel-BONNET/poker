@@ -1,6 +1,4 @@
 use leptos::prelude::*;
-use leptos_router::components::*;
-use leptos_router::path;
 use crate::pages::home::HomePage;
 use crate::pages::game::GamePage;
 use crate::pages::room::RoomPage;
@@ -16,12 +14,14 @@ pub fn App() -> impl IntoView {
     };
     provide_context(client);
     view! {
-        <Router>
-            <Routes fallback=|| "Page not found">
-                <Route path=path!("/") view=HomePage />
-                <Route path=path!("/game") view=GamePage />
-                <Route path=path!("/room") view=RoomPage />
-            </Routes>
-        </Router>
+        {move || {
+            if client.room.get().is_none() {
+                view! { <HomePage /> }.into_any()
+            } else if client.game.get().map(|g| g.started).unwrap_or(false) {
+                view! { <GamePage /> }.into_any()
+            } else {
+                view! { <RoomPage /> }.into_any()
+            }
+        }}
     }.into_any()
 }

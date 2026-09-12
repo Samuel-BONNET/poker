@@ -1,5 +1,4 @@
 use leptos::prelude::*;
-use leptos_router::hooks::use_navigate;
 use wasm_bindgen::prelude::*;
 use wasm_bindgen::JsCast;
 use crate::api::ws;
@@ -15,15 +14,7 @@ fn initials(name: &str) -> String {
 #[component]
 pub fn RoomPage() -> impl IntoView {
     let client = use_context::<ws::WsClient>().expect("WsClient not provided");
-    let navigate = use_navigate();
     let (copied, set_copied) = signal(false);
-
-    let nav_effect = navigate.clone();
-    Effect::new(move |_| {
-        if client.game.get().map(|g| g.started).unwrap_or(false) {
-            nav_effect("/game", Default::default());
-        }
-    });
 
     let copy = move |_| {
         if let Some(room) = client.room.get() {
@@ -50,7 +41,6 @@ pub fn RoomPage() -> impl IntoView {
 
     let leave = move |_| {
         ws::leave();
-        navigate("/", Default::default());
     };
 
     view! {

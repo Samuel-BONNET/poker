@@ -36,7 +36,7 @@ pub fn SeatView(
         format!("${}", bankroll)
     };
 
-    let card_size = if is_hero { "w-14" } else { "w-9" };
+    let card_size = "w-28";
     let card_gap = if is_hero { "gap-1.5" } else { "gap-1" };
 
     let avatar_cls = move || {

@@ -22,15 +22,18 @@ pub fn ActionBar(my_turn: Signal<bool>) -> impl IntoView {
     let was_turn = RwSignal::new(false);
     Effect::new(move |_| {
         let turn = my_turn.get();
-        if turn && !was_turn.get() {
+        if turn && !was_turn.get() && raise_value.get() != 1 {
             set_raise_value.set(1);
         }
-        was_turn.set(turn);
+        let was = was_turn.get();
+        if was != turn {
+            was_turn.set(turn);
+        }
         let hi = raise_hi.get();
         let cur = raise_value.get();
-        if hi > 0 && cur < 1 {
+        if hi > 0 && cur < 1 && cur != 1 {
             set_raise_value.set(1);
-        } else if hi > 0 && cur > hi {
+        } else if hi > 0 && cur > hi && cur != hi {
             set_raise_value.set(hi);
         }
     });

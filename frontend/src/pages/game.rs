@@ -1,5 +1,4 @@
 use leptos::prelude::*;
-use leptos_router::components::*;
 use crate::api::ws;
 use crate::components::action_bar::ActionBar;
 use crate::components::card::CardView;
@@ -52,9 +51,7 @@ pub fn GamePage() -> impl IntoView {
     view! {
         <div class="h-screen w-screen overflow-hidden bg-bg flex flex-col relative">
             <header class="flex items-center justify-between px-6 py-4 z-30">
-                <A href="/">
-                    <button class="btn-secondary px-3 py-1.5 text-xs">"← Retour"</button>
-                </A>
+                <button class="btn-secondary px-3 py-1.5 text-xs" on:click=move |_| ws::leave()>"← Retour"</button>
                 <div class="flex items-center gap-3 text-sm text-muted">
                     {move || client.room.get().map(|r| view! { <span>{format!("Salle {}", r)}</span> })}
                     {move || client.game.get().map(|g| view! { <span class="text-text/80">{moment_label(&g.moment)}</span> })}

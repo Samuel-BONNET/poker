@@ -8,6 +8,7 @@ pub enum ClientMessage {
     JoinRoom { room: String, name: Option<String> },
     Start,
     Leave,
+    Resync,
     Action { action_type: String, value: Option<i32> },
 }
 

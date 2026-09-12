@@ -1,5 +1,4 @@
 use leptos::prelude::*;
-use leptos_router::hooks::use_navigate;
 use crate::api::ws;
 
 #[component]
@@ -7,13 +6,6 @@ pub fn HomePage() -> impl IntoView {
     let client = use_context::<ws::WsClient>().expect("WsClient not provided");
     let (name, set_name) = signal(String::new());
     let (code, set_code) = signal(String::new());
-    let navigate = use_navigate();
-
-    Effect::new(move |_| {
-        if client.room.get().is_some() {
-            navigate("/room", Default::default());
-        }
-    });
 
     let create = move |_| {
         let n = name.get();

@@ -1,17 +1,17 @@
-use futures_channel::mpsc;
-use futures_util::{SinkExt, StreamExt};
-use gloo_net::websocket::{futures::WebSocket, Message as WsMessage};
 use leptos::prelude::*;
-use leptos::task::spawn_local;
 use shared::card::Card;
 use shared::message::{ClientMessage, GameSnapshot, ServerMessage};
 use std::cell::RefCell;
+use wasm_bindgen::closure::Closure;
+use wasm_bindgen::JsCast;
+use web_sys::{CloseEvent, Event, MessageEvent, WebSocket};
 
 const WS_URL: &str = "ws://127.0.0.1:3000/ws";
 
 thread_local! {
-    static SENDER: RefCell<Option<mpsc::UnboundedSender<ClientMessage>>> = const { RefCell::new(None) };
+    static SOCKET: RefCell<Option<WebSocket>> = const { RefCell::new(None) };
     static CLIENT: RefCell<Option<WsClient>> = const { RefCell::new(None) };
+    static RESYNC_CLOSURE: RefCell<Option<Closure<dyn FnMut()>>> = const { RefCell::new(None) };
 }
 
 #[derive(Clone, Copy)]
@@ -23,7 +23,10 @@ pub struct WsClient {
     pub connected: RwSignal<bool>,
     pub error: RwSignal<Option<String>>,
     pub notice: RwSignal<Option<String>>,
-    pub is_leader: RwSignal<bool>
+    pub is_leader: RwSignal<bool>,
+    pub last_state: RwSignal<Option<String>>,
+    pub rx_count: RwSignal<u64>,
+    pub last_rx: RwSignal<Option<String>>,
 }
 
 pub fn client() -> Result<WsClient, String> {
@@ -36,19 +39,8 @@ pub fn client() -> Result<WsClient, String> {
 }
 
 fn new_client() -> Result<WsClient, String> {
-    let ws = WebSocket::open(WS_URL).map_err(|e| e.to_string())?;
-    let (tx, mut rx) = mpsc::unbounded::<ClientMessage>();
-    SENDER.with(|s| *s.borrow_mut() = Some(tx));
-    let (mut sink, mut stream) = ws.split();
-
-    spawn_local(async move {
-        while let Some(msg) = rx.next().await {
-            let text = serde_json::to_string(&msg).unwrap();
-            if sink.send(WsMessage::Text(text)).await.is_err() {
-                break;
-            }
-        }
-    });
+    web_sys::console::log_1(&"[poker] frontend build: state-driven (callbacks)".into());
+    let ws = WebSocket::new(WS_URL).map_err(|_| "WS init error".to_string())?;
 
     let client = WsClient {
         room: RwSignal::new(None),
@@ -59,22 +51,61 @@ fn new_client() -> Result<WsClient, String> {
         error: RwSignal::new(None),
         notice: RwSignal::new(None),
         is_leader: RwSignal::new(false),
+        last_state: RwSignal::new(None),
+        rx_count: RwSignal::new(0),
+        last_rx: RwSignal::new(None),
     };
-
     CLIENT.with(|c| *c.borrow_mut() = Some(client));
 
-    spawn_local(async move {
-        while let Some(msg) = stream.next().await {
-            if let Ok(WsMessage::Text(text)) = msg {
-                if let Ok(server_msg) = serde_json::from_str::<ServerMessage>(&text) {
-                    client.apply(server_msg);
-                }
-            }
-        }
+    let on_open = Closure::wrap(Box::new(move |_: Event| {
+        client.connected.set(true);
+        web_sys::console::log_1(&"[poker] ws open".into());
+    }) as Box<dyn FnMut(Event)>);
+    ws.set_onopen(Some(on_open.as_ref().unchecked_ref()));
+    on_open.forget();
+
+    let on_close = Closure::wrap(Box::new(move |_: CloseEvent| {
         client.connected.set(false);
-    });
+        web_sys::console::log_1(&"[poker] ws closed".into());
+    }) as Box<dyn FnMut(CloseEvent)>);
+    ws.set_onclose(Some(on_close.as_ref().unchecked_ref()));
+    on_close.forget();
+
+    let on_msg = Closure::wrap(Box::new(move |ev: MessageEvent| {
+        if let Some(text) = ev.data().as_string() {
+            Client::handle_rx(&client, &text);
+        }
+    }) as Box<dyn FnMut(MessageEvent)>);
+    ws.set_onmessage(Some(on_msg.as_ref().unchecked_ref()));
+    on_msg.forget();
+
+    SOCKET.with(|s| *s.borrow_mut() = Some(ws));
+
+    let cb = Closure::wrap(Box::new(resync) as Box<dyn FnMut()>);
+    let handler = cb.as_ref().unchecked_ref::<js_sys::Function>().clone();
+    RESYNC_CLOSURE.with(|c| *c.borrow_mut() = Some(cb));
+    if let Some(w) = web_sys::window() {
+        let _ = w.set_interval_with_callback_and_timeout_and_arguments_0(&handler, 1500);
+    }
 
     Ok(client)
+}
+
+struct Client;
+
+impl Client {
+    fn handle_rx(client: &WsClient, text: &str) {
+        let rx = client.rx_count.get() + 1;
+        client.rx_count.set(rx);
+        client.last_rx.set(Some(format!("#{rx}: {}", text.chars().take(400).collect::<String>())));
+
+        match serde_json::from_str::<ServerMessage>(text) {
+            Ok(msg) => client.apply(msg),
+            Err(_) => {
+                web_sys::console::log_1(&format!("[poker] rx #{rx} UNPARSEABLE: {}", text.chars().take(120).collect::<String>()).into());
+            }
+        }
+    }
 }
 
 pub fn create_room(name: Option<&str>) {
@@ -90,15 +121,25 @@ pub fn start() {
 }
 
 pub fn action(action_type: &str, value: Option<i32>) {
-    send(ClientMessage::Action { action_type: action_type.to_string(), value})
+    send(ClientMessage::Action { action_type: action_type.to_string(), value })
 }
 
 fn send(msg: ClientMessage) {
-    SENDER.with(|s| {
-       if let Some(tx) = s.borrow().as_ref() {
-           let _ = tx.unbounded_send(msg);
-       }
+    let Ok(text) = serde_json::to_string(&msg) else { return };
+    SOCKET.with(|s| {
+        if let Some(ws) = s.borrow().as_ref() {
+            let _ = ws.send_with_str(&text);
+        }
     });
+}
+
+fn resync() {
+    let started = CLIENT.with(|c| {
+        c.borrow().as_ref().map(|cl| cl.game.get().map(|g| g.started).unwrap_or(false)).unwrap_or(false)
+    });
+    if !started {
+        send(ClientMessage::Resync);
+    }
 }
 
 pub fn leave() {
@@ -116,7 +157,7 @@ impl WsClient {
                 self.notice.set(None);
                 self.is_leader.set(false);
             }
-            ServerMessage::RoomCreated { room, seat }  => {
+            ServerMessage::RoomCreated { room, seat } => {
                 self.room.set(Some(room));
                 self.my_seat.set(Some(seat));
                 self.connected.set(true);
@@ -126,6 +167,8 @@ impl WsClient {
             }
             ServerMessage::GameState(snapshot) => {
                 self.game.set(Some(snapshot.clone()));
+                self.last_state.set(Some(format!("GameState: started={} players={} moment={}", snapshot.started, snapshot.players.len(), snapshot.moment)));
+                web_sys::console::log_1(&format!("[poker] GameState started={} players={} my_seat={:?}", snapshot.started, snapshot.players.len(), self.my_seat.get()).into());
                 self.is_leader.set(snapshot.leader_seat == self.my_seat.get());
                 self.error.set(None);
                 self.notice.set(None);

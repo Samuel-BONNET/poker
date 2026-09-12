@@ -80,6 +80,7 @@ async fn handle_socket(socket: WebSocket, lobby: SharedState){
                             let (conn_id, seat) = room.register(out_tx.clone())?;
                             if let Some(n) = name { room.set_name(conn_id, n); }
                             current = Some((code.clone(), conn_id));
+                            println!("[ws] conn {conn_id} created room {code} (seat {seat})");
                             let _ = out_tx.send(ServerMessage::RoomCreated { room: code, seat });
                             room.push_state();
                             Ok(())
@@ -93,6 +94,7 @@ async fn handle_socket(socket: WebSocket, lobby: SharedState){
                             let (conn_id, seat) = room.register(out_tx.clone())?;
                             if let Some(n) = name { room.set_name(conn_id, n); }
                             current = Some((code.clone(), conn_id));
+                            println!("[ws] conn {conn_id} joined room {code} (seat {seat})");
                             let _ = out_tx.send(ServerMessage::Welcome { room: code, seat });
                             room.push_state();
                             Ok(())
@@ -102,6 +104,7 @@ async fn handle_socket(socket: WebSocket, lobby: SharedState){
                             let room = lobby.rooms.get(&code).ok_or("Room no longer exists")?;
                             let mut room = room.lock().await;
                             room.start(conn_id)?;
+                            println!("[ws] conn {conn_id} started room {code} ({} active player(s)", room.game.players.iter().filter(|p| p.active).count());
                             room.push_state();
                             Ok(())
                         }
@@ -110,6 +113,14 @@ async fn handle_socket(socket: WebSocket, lobby: SharedState){
                             leave_room(&mut lobby, &code, conn_id).await;
                             current = None;
                             let _ = out_tx.send(ServerMessage::Leave);
+                            Ok(())
+                        }
+                        ClientMessage::Resync => {
+                            if let Some((code, _id)) = current.clone() {
+                                let room_ref = lobby.rooms.get(&code).ok_or("Room no longer exists")?;
+                                let mut room = room_ref.lock().await;
+                                room.push_state();
+                            }
                             Ok(())
                         }
                         ClientMessage::Action { action_type, value } => {
@@ -135,13 +146,17 @@ async fn handle_socket(socket: WebSocket, lobby: SharedState){
             }
             outgoing = out_rx.recv() => {
                 let Some(msg) = outgoing else { break };
-                let Ok(text) = serde_json::to_string(&msg) else { continue };
+                let Ok(text) = serde_json::to_string(&msg) else {
+                    println!("[ws] serialization failure, message dropped: {msg:?}");
+                    continue;
+                };
                 if sink.send(Message::Text(text.into())).await.is_err() { break; }
             }
         }
     }
     if let Some((code, conn_id)) = current {
         let mut lobby = lobby.lock().await;
+        println!("[ws] conn {conn_id} disconnected from room {code}");
         leave_room(&mut lobby, &code, conn_id).await;
     }
 }
@@ -171,6 +186,9 @@ async fn leave_room(lobby: &mut MutexGuard<'_, Lobby>, code: &str, conn_id: u64)
     }
     if !empty && room.game.started {
         room.handle_disconnect();
+    }
+    if !empty && !room.game.started {
+        room.push_state();
     }
     drop(room);
     if empty {

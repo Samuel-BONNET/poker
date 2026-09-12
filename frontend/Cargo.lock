@@ -358,6 +358,7 @@ dependencies = [
  "futures-channel",
  "futures-util",
  "gloo-net",
+ "js-sys",
  "leptos",
  "leptos_router",
  "serde",
