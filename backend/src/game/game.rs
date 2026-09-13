@@ -217,7 +217,21 @@ impl Game {
     }
 
     pub fn distribute_pots(&mut self) {
-        let results: Vec<(usize, Hand)> = self.players.iter().enumerate().filter(|(_, p)| !p.folded && p.active).map(|(i, p)| {
+        let live: Vec<usize> = self.players.iter().enumerate()
+            .filter(|(_, p)| !p.folded && p.active)
+            .map(|(i, _)| i)
+            .collect();
+
+        if live.len() == 1 {
+            let w = live[0];
+            self.players[w].add_bankroll(self.pot);
+            println!("{} win the {}$ pot !", self.players[w].name, self.pot);
+            self.last_winner = Some(self.players[w].name.clone());
+            return;
+        }
+
+        let results: Vec<(usize, Hand)> = live.iter().map(|&i| {
+                let p = &self.players[i];
                 let mut c = p.hand.cards.clone();
                 c.extend(self.common_card.iter().cloned());
                 let mut hc = HandCalculate::new(Hand::new(c));
