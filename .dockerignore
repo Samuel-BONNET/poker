@@ -1,0 +1,7 @@
+.git/
+.idea/
+backend/target/
+frontend/target/
+frontend/node_modules/
+frontend/dist/
+shared/target/
