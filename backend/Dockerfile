@@ -16,5 +16,5 @@ RUN touch backend/src/main.rs && cargo build --release --manifest-path backend/C
 
 FROM debian:bookworm-slim
 COPY --from=builder /app/backend/target/release/backend /usr/local/bin/backend
-EXPOSE 3000
+EXPOSE 3001
 CMD ["backend"]

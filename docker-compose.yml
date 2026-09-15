@@ -4,9 +4,9 @@ services:
       context: .
       dockerfile: backend/Dockerfile
     environment:
-      BIND_ADDR: "0.0.0.0:3000"
+      BIND_ADDR: "0.0.0.0:3001"
     ports:
-      - "3000:3000"
+      - "3001:3001"
 
   frontend:
     build:

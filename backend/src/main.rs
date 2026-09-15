@@ -33,7 +33,7 @@ async fn main() {
         .layer(CorsLayer::new().allow_origin(Any).allow_methods(Any).allow_headers(Any))
         .with_state(state);
 
-    let addr = std::env::var("BIND_ADDR").unwrap_or_else(|_| "127.0.0.1:3000".to_string());
+    let addr = std::env::var("BIND_ADDR").unwrap_or_else(|_| "127.0.0.1:3001".to_string());
     let listener = TcpListener::bind(addr).await.unwrap();
 
     axum::serve(listener, app).await.unwrap();

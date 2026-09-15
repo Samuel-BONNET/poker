@@ -2,11 +2,29 @@ use leptos::prelude::*;
 use shared::card::Card;
 use shared::message::{ClientMessage, GameSnapshot, ServerMessage};
 use std::cell::RefCell;
+use wasm_bindgen::JsValue;
 use wasm_bindgen::closure::Closure;
 use wasm_bindgen::JsCast;
 use web_sys::{CloseEvent, Event, MessageEvent, WebSocket};
 
-const WS_URL: &str = "ws://127.0.0.1:3000/ws";
+fn ws_url() -> String {
+    let Some(window) = web_sys::window() else {
+        return "ws://127.0.0.1:3001/ws".to_string();
+    };
+    let key = JsValue::from_str("POKER_WS_URL");
+    if let Ok(v) = js_sys::Reflect::get(&window, &key) {
+        if let Some(custom) = v.as_string() {
+            return custom;
+        }
+    }
+    let location = window.location();
+    let scheme = if location.protocol().map(|p| p == "https:").unwrap_or(false) { "wss" } else { "ws" };
+    let host = location.host().unwrap_or_default();
+    if host.is_empty() {
+        return "ws://127.0.0.1:3001/ws".to_string();
+    }
+    format!("{scheme}://{host}/ws")
+}
 
 thread_local! {
     static SOCKET: RefCell<Option<WebSocket>> = const { RefCell::new(None) };
@@ -40,7 +58,7 @@ pub fn client() -> Result<WsClient, String> {
 
 fn new_client() -> Result<WsClient, String> {
     web_sys::console::log_1(&"[poker] frontend build: state-driven (callbacks)".into());
-    let ws = WebSocket::new(WS_URL).map_err(|_| "WS init error".to_string())?;
+    let ws = WebSocket::new(&ws_url()).map_err(|_| "WS init error".to_string())?;
 
     let client = WsClient {
         room: RwSignal::new(None),
